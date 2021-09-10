@@ -4,7 +4,3 @@ server:
 spring:
   application:
     name: @project.name@
-  security:
-    user:
-      name: admin
-      password: admin
