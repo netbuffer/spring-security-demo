@@ -4,3 +4,11 @@ server:
 spring:
   application:
     name: @project.name@
+
+logging:
+  level:
+    cn:
+      netbuffer: debug
+    org:
+      springframework:
+        security: debug

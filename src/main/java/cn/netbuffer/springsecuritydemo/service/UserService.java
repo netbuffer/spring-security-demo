@@ -31,6 +31,7 @@ public class UserService implements UserDetailsService {
         log.debug("loadUserByUsername invoked username={}", username);
         String password = passwordEncoder.encode(username);
         List<GrantedAuthority> grantedAuthorityList = AuthorityUtils.commaSeparatedStringToAuthorityList(username);
+        log.debug("set grantedAuthorityList={} for username[{}]", grantedAuthorityList, username);
         return new User(username, password, grantedAuthorityList);
     }
 
