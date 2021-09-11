@@ -34,7 +34,9 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
                 .authenticated()
                 .and()
                 .csrf()
-                .disable();
+                .disable()
+                .exceptionHandling()
+                .accessDeniedPage("/403.html");
 
     }
 
