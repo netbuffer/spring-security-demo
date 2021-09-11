@@ -10,6 +10,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import javax.annotation.Resource;
 
 @Slf4j
@@ -48,8 +49,6 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
                 .anyRequest()
                 .authenticated()
                 .and()
-                .csrf()
-                .disable()
                 .exceptionHandling()
                 .accessDeniedPage("/403.html");
         http.logout()
@@ -59,6 +58,10 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
                 .rememberMeParameter("rme")
                 .userDetailsService(userDetailsService)
                 .tokenRepository(persistentTokenRepository());
+        CookieCsrfTokenRepository cookieCsrfTokenRepository=CookieCsrfTokenRepository.withHttpOnlyFalse();
+        cookieCsrfTokenRepository.setCookieName("csrf-token");
+        http.csrf()
+                .csrfTokenRepository(cookieCsrfTokenRepository);
 
     }
 

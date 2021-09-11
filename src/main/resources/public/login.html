@@ -12,7 +12,28 @@
     <input name="password" type="password"/><br/>
     <label>记住我</label>
     <input type="checkbox" name="rme"/>
+    <input type="hidden" name="_csrf"/>
     <button type="submit">登录</button>
+    <script>
+        const getCookiesObj = () => {
+            return document.cookie
+                .split(';')
+                .reduce((f, sv)=> {
+                    let _sv = sv.trim()
+                        .split('=')
+                        .map(v => {
+                            return v.trim()
+                        })
+                    f[_sv[0]] = _sv[1]
+                    return  f
+                }, {})
+
+        }
+        let cookie=getCookiesObj();
+        let token=cookie["csrf-token"];
+        console.log("set token=%s",token);
+        document.querySelector("input[name='_csrf']").value=token;
+    </script>
 </form>
 </body>
 </html>
