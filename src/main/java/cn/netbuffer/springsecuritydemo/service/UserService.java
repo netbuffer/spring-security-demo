@@ -24,7 +24,7 @@ public class UserService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         //todo find user from database/redis...
         if (!username.equals("admin")) {
-            return null;
+            throw new UsernameNotFoundException(username+"not exist");
         }
         log.debug("loadUserByUsername invoked username={}", username);
         String password = passwordEncoder.encode("admin");
