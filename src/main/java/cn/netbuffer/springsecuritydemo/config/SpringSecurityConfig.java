@@ -1,12 +1,18 @@
 package cn.netbuffer.springsecuritydemo.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
+import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
+import javax.annotation.Resource;
 
+@Slf4j
 @Configuration
 public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
 
@@ -14,6 +20,15 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
+    @Bean
+    public PersistentTokenRepository persistentTokenRepository() {
+        log.debug("init InMemoryTokenRepositoryImpl");
+        return new InMemoryTokenRepositoryImpl();
+    }
+
+    @Resource
+    private UserDetailsService userDetailsService;
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
@@ -40,6 +55,10 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
         http.logout()
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/info");
+        http.rememberMe()
+                .rememberMeParameter("rme")
+                .userDetailsService(userDetailsService)
+                .tokenRepository(persistentTokenRepository());
 
     }
 
