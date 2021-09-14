@@ -6,7 +6,8 @@
 
 ### help
 * look for the default password generated from the console:`Using generated security password:` default generated user is `user` 
-* [test login process](http://localhost:18000/app)
+* [test login process](http://localhost:18000/app)  
+![http request filter-chain](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/architecture/multi-securityfilterchain.png)  
 ```
 @Secure
 @RolesAllowed
