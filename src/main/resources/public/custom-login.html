@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>custom login page</title>
+</head>
+<body>
+<form action="/your-custom-login-path" method="post" onsubmit="return false">
+    <label>用户名</label>
+    <input name="username" type="text"/><br/>
+    <label>密码</label>
+    <input name="password" type="password"/><br/>
+    <input type="hidden" name="_csrf"/>
+    <button type="submit" onclick="login()">登录</button>
+    <script>
+        const getCookiesObj = () => {
+            return document.cookie
+                .split(';')
+                .reduce((f, sv)=> {
+                    let _sv = sv.trim()
+                        .split('=')
+                        .map(v => {
+                            return v.trim()
+                        })
+                    f[_sv[0]] = _sv[1]
+                    return  f
+                }, {})
+
+        }
+        let cookie=getCookiesObj();
+        let token=cookie["csrf-token"];
+        console.log("set token=%s",token);
+        document.querySelector("input[name='_csrf']").value=token;
+        function login(){
+            fetch("/your-custom-login-path", {
+                body: JSON.stringify({
+                    "username": document.querySelector("input[name='username']").value,
+                    "password": document.querySelector("input[name='password']").value
+                }),
+                headers: {
+                    'content-type': 'application/json'
+                },
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(json => console.log("response json:%o", json))
+        }
+    </script>
+</form>
+</body>
+</html>

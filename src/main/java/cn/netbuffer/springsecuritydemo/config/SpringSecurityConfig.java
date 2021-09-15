@@ -1,27 +1,42 @@
 package cn.netbuffer.springsecuritydemo.config;
 
 import cn.netbuffer.springsecuritydemo.component.CustomLogoutHandler;
+import cn.netbuffer.springsecuritydemo.filter.CustomLoginFilter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationEventPublisher;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
+import org.springframework.security.web.context.SecurityContextPersistenceFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
-
 import javax.annotation.Resource;
 
 @Slf4j
 @Configuration
-public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
+public class SpringSecurityConfig extends WebSecurityConfigurerAdapter implements ApplicationContextAware {
+
+    /**
+     * open access for static file
+     *
+     * @param web
+     * @throws Exception
+     */
+    @Override
+    public void configure(WebSecurity web) throws Exception {
+        web.ignoring().antMatchers("/*.html");
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -44,6 +59,11 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
     private UserDetailsService userDetailsService;
     @Resource
     private CustomLogoutHandler customLogoutHandler;
+
+    private CustomLoginFilter customLoginFilter=new CustomLoginFilter();
+
+    @Resource
+    private AuthenticationManager authenticationManager;
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
@@ -77,7 +97,8 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
         cookieCsrfTokenRepository.setCookieName("csrf-token");
         http.csrf()
                 .csrfTokenRepository(cookieCsrfTokenRepository);
-
+        customLoginFilter.setAuthenticationManager(authenticationManager);
+        http.addFilterAfter(customLoginFilter, SecurityContextPersistenceFilter.class);
     }
 
 }
