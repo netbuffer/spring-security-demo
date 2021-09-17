@@ -1,4 +1,7 @@
 # spring-security-demo
+![](https://img.shields.io/static/v1?label=sppring-boot&message=2.5.4&color=blue)
+![](https://img.shields.io/static/v1?label=sppring-security&message=2.5.4&color=green)
+![](https://img.shields.io/static/v1?label=fastjson&message=1.2.78&color=blue)
 > spring-security test project  
 * https://github.com/netbuffer/spring-security-demo
 * https://gitee.com/netbuffer/spring-security-demo
