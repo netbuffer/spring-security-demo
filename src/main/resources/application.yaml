@@ -11,4 +11,9 @@ logging:
       netbuffer: debug
     org:
       springframework:
-        security: debug
+        security:
+          web:
+            FilterChainProxy: debug
+            access:
+              intercept:
+                FilterSecurityInterceptor: trace

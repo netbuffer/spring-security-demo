@@ -34,8 +34,8 @@ public class CustomLoginFilter extends AbstractAuthenticationProcessingFilter {
         String body = StreamUtils.copyToString(request.getInputStream(), Charset.forName("UTF-8"));
         JSONObject data = JSON.parseObject(body);
         log.debug("parse login data={}", data);
-        UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken(data.getString("username"), data.getString("password"));
-        return super.getAuthenticationManager().authenticate(authRequest);
+        UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(data.getString("username"), data.getString("password"));
+        return super.getAuthenticationManager().authenticate(usernamePasswordAuthenticationToken);
     }
 
     @Override
