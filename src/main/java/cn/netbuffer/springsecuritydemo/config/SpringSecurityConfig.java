@@ -55,7 +55,7 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter implement
         return new InMemoryTokenRepositoryImpl();
     }
 
-    @Resource
+    @Resource(name = "customUserDetailsService")
     private UserDetailsService userDetailsService;
     @Resource
     private CustomLogoutHandler customLogoutHandler;

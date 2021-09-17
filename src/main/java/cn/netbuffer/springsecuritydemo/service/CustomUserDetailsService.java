@@ -15,7 +15,7 @@ import java.util.List;
 
 @Slf4j
 @Service
-public class UserService implements UserDetailsService {
+public class CustomUserDetailsService implements UserDetailsService {
 
     @Resource
     private PasswordEncoder passwordEncoder;
