@@ -2,25 +2,30 @@ package cn.netbuffer.springsecuritydemo.config;
 
 import cn.netbuffer.springsecuritydemo.component.CustomLogoutHandler;
 import cn.netbuffer.springsecuritydemo.filter.CustomLoginFilter;
+import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
-import org.springframework.security.web.context.SecurityContextPersistenceFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.web.filter.CorsFilter;
 import javax.annotation.Resource;
 
 @Slf4j
@@ -60,7 +65,7 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter implement
     @Resource
     private CustomLogoutHandler customLogoutHandler;
 
-    private CustomLoginFilter customLoginFilter=new CustomLoginFilter();
+    private CustomLoginFilter customLoginFilter = new CustomLoginFilter();
 
     @Resource
     private AuthenticationManager authenticationManager;
@@ -98,7 +103,24 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter implement
         http.csrf()
                 .csrfTokenRepository(cookieCsrfTokenRepository);
         customLoginFilter.setAuthenticationManager(authenticationManager);
-        http.addFilterAfter(customLoginFilter, SecurityContextPersistenceFilter.class);
+        customLoginFilter.setAuthenticationSuccessHandler((httpServletRequest, httpServletResponse, authentication) -> {
+            User user = (User) authentication.getPrincipal();
+            log.debug("process [{}] login response", user.getUsername());
+            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
+            JSONObject data = new JSONObject();
+            data.put("user", user.getUsername());
+            data.put("session", httpServletRequest.getSession().getId());
+            httpServletResponse.getWriter().write(data.toJSONString());
+        });
+        customLoginFilter.setAuthenticationFailureHandler((httpServletRequest, httpServletResponse, e) -> {
+            log.debug("process login fail [{}]", e.getMessage());
+            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
+            JSONObject data = new JSONObject();
+            data.put("msg", e.getMessage());
+            httpServletResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
+            httpServletResponse.getWriter().write(data.toJSONString());
+        });
+        http.addFilterAfter(customLoginFilter, CorsFilter.class);
     }
 
 }
