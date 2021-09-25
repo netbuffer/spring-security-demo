@@ -12,6 +12,9 @@ logging:
     org:
       springframework:
         security:
+          authentication:
+            dao:
+              DaoAuthenticationProvider: debug
           web:
             FilterChainProxy: debug
             access:

@@ -14,14 +14,18 @@ import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
-@Service
 public class CustomUserDetailsService implements UserDetailsService {
 
     @Resource
     private PasswordEncoder passwordEncoder;
     private String[] users = new String[]{"admin", "test"};
 
-    //login process
+    /**
+     * find user from storage(db/redis/es/ck...)
+     * @param username
+     * @return
+     * @throws UsernameNotFoundException
+     */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         //todo find user from database/redis...

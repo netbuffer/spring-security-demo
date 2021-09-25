@@ -12,47 +12,48 @@
     <input name="password" type="password"/><br/>
     <input type="hidden" name="_csrf"/>
     <button type="submit" onclick="login()">登录</button>
-    <script>
-        const getCookiesObj = () => {
-            return document.cookie
-                .split(';')
-                .reduce((f, sv)=> {
-                    let _sv = sv.trim()
-                        .split('=')
-                        .map(v => {
-                            return v.trim()
-                        })
-                    f[_sv[0]] = _sv[1]
-                    return  f
-                }, {})
-
-        }
-        let cookie=getCookiesObj();
-        let token=cookie["csrf-token"];
-        console.log("set token=%s",token);
-        document.querySelector("input[name='_csrf']").value=token;
-        function login(){
-            fetch("/your-custom-login-path", {
-                body: JSON.stringify({
-                    "username": document.querySelector("input[name='username']").value,
-                    "password": document.querySelector("input[name='password']").value
-                }),
-                headers: {
-                    'content-type': 'application/json'
-                },
-                method: 'POST'
-            })
-                .then(response => response.json())
-                .then(json => {
-                    console.log("response json:%o", json);
-                    if(json.session){
-                        location.href = "/";
-                    }else {
-                        alert(json.msg);
-                    }
-                })
-        }
-    </script>
 </form>
+<script>
+    const getCookiesObj = () => {
+        return document.cookie
+            .split(';')
+            .reduce((f, sv)=> {
+                let _sv = sv.trim()
+                    .split('=')
+                    .map(v => {
+                        return v.trim()
+                    })
+                f[_sv[0]] = _sv[1]
+                return  f
+            }, {})
+
+    }
+    let cookie=getCookiesObj();
+    let token=cookie["csrf-token"];
+    console.log("set token=%s",token);
+    document.querySelector("input[name='_csrf']").value=token;
+    function login(){
+        let user=document.querySelector("input[name='username']").value;
+        fetch("/your-custom-login-path", {
+            body: JSON.stringify({
+                "username": user,
+                "password": document.querySelector("input[name='password']").value
+            }),
+            headers: {
+                'content-type': 'application/json'
+            },
+            method: 'POST'
+        })
+            .then(response => response.json())
+            .then(json => {
+                console.log("response json:%o", json);
+                if(json.session){
+                    location.href = "/"+user;
+                }else {
+                    alert(json.msg);
+                }
+            })
+    }
+</script>
 </body>
 </html>
