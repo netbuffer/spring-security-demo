@@ -24,3 +24,6 @@
 * [Security Filters](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#servlet-security-filters)
 * [abstractprocessingfilter](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#servlet-authentication-abstractprocessingfilter)
 * ![AbstractAuthenticationProcessingFilter](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/abstractauthenticationprocessingfilter.png)
+
+### articles
+* [Spring Boot整合Spring Security最简单的用法](https://www.toutiao.com/i7013356585607086625)
