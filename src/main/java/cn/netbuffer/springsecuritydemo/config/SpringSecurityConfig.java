@@ -4,6 +4,7 @@ import cn.netbuffer.springsecuritydemo.auth.provider.CustomAuthenticationProvide
 import cn.netbuffer.springsecuritydemo.component.CustomLogoutHandler;
 import cn.netbuffer.springsecuritydemo.filter.CustomLoginFilter;
 import cn.netbuffer.springsecuritydemo.filter.CustomTokenAuthenticationFilter;
+import cn.netbuffer.springsecuritydemo.permission.SsdPermissionEvaluator;
 import cn.netbuffer.springsecuritydemo.service.CustomUserDetailsService;
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
@@ -26,16 +27,21 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.access.expression.DefaultWebSecurityExpressionHandler;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.filter.CorsFilter;
+import javax.annotation.Resource;
 
 @Slf4j
 @Configuration
 public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
+
+    @Resource
+    private SsdPermissionEvaluator ssdPermissionEvaluator;
 
     @Bean
     @Override
@@ -145,6 +151,13 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
             httpServletResponse.getWriter().write(data.toJSONString());
         });
         return customTokenAuthenticationFilter;
+    }
+
+    @Bean
+    public DefaultWebSecurityExpressionHandler defaultWebSecurityExpressionHandler() {
+        DefaultWebSecurityExpressionHandler expressionHandler = new DefaultWebSecurityExpressionHandler();
+        expressionHandler.setPermissionEvaluator(ssdPermissionEvaluator);
+        return expressionHandler;
     }
 
     @Override
