@@ -31,3 +31,13 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Secrets & Local Env ###
+*.env
+*.env.*
+!http/http-client.env.json
+*.key
+*.pem
+*.jks
+*.p12
+

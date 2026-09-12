@@ -2,11 +2,13 @@ package cn.netbuffer.springsecuritydemo.config;
 
 import cn.netbuffer.springsecuritydemo.auth.provider.CustomAuthenticationProvider;
 import cn.netbuffer.springsecuritydemo.component.CustomLogoutHandler;
+import cn.netbuffer.springsecuritydemo.filter.CsrfCookieFilter;
 import cn.netbuffer.springsecuritydemo.filter.CustomLoginFilter;
 import cn.netbuffer.springsecuritydemo.filter.CustomTokenAuthenticationFilter;
 import cn.netbuffer.springsecuritydemo.permission.SsdPermissionEvaluator;
 import cn.netbuffer.springsecuritydemo.service.CustomUserDetailsService;
-import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson2.JSONObject;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -14,44 +16,61 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.builders.WebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.access.expression.DefaultWebSecurityExpressionHandler;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 import org.springframework.security.web.authentication.rememberme.InMemoryTokenRepositoryImpl;
 import org.springframework.security.web.authentication.rememberme.PersistentTokenRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.filter.CorsFilter;
-import javax.annotation.Resource;
 
+import java.util.List;
+
+/**
+ * Spring Security 核心配置
+ *
+ * <p>Spring Security 7 起已移除 {@code WebSecurityConfigurerAdapter}，统一采用
+ * {@link SecurityFilterChain} Bean + Lambda DSL 方式配置过滤器链。</p>
+ * <p>{@link EnableMethodSecurity} 替代已废弃的 {@code @EnableGlobalMethodSecurity}，
+ * 开启 {@code @Secured} / {@code @PreAuthorize} 等方法级注解鉴权。</p>
+ */
 @Slf4j
 @Configuration
-public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
+@EnableWebSecurity
+@EnableMethodSecurity(securedEnabled = true, prePostEnabled = true)
+public class SpringSecurityConfig {
 
     @Resource
     private SsdPermissionEvaluator ssdPermissionEvaluator;
 
     @Bean
-    @Override
-    public AuthenticationManager authenticationManagerBean() throws Exception {
-        return super.authenticationManagerBean();
+    public MethodSecurityExpressionHandler methodSecurityExpressionHandler() {
+        DefaultMethodSecurityExpressionHandler expressionHandler = new DefaultMethodSecurityExpressionHandler();
+        expressionHandler.setPermissionEvaluator(ssdPermissionEvaluator);
+        return expressionHandler;
     }
 
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        auth.authenticationProvider(daoAuthenticationProvider()).authenticationProvider(customAuthenticationProvider());
+    @Bean
+    public AuthenticationManager authenticationManager(List<AuthenticationProvider> providers) {
+        return new ProviderManager(providers);
     }
 
     @Bean(name = "customAuthenticationProvider")
@@ -60,10 +79,11 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Bean(name = "daoAuthenticationProvider")
-    public AuthenticationProvider daoAuthenticationProvider() {
-        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
-        daoAuthenticationProvider.setUserDetailsService(userDetailsService());
-        return daoAuthenticationProvider;
+    public AuthenticationProvider daoAuthenticationProvider(UserDetailsService userDetailsService,
+                                                            PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return provider;
     }
 
     @Bean(name = "customUserDetailsService")
@@ -81,17 +101,6 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 
-    /**
-     * open access for static file
-     *
-     * @param web
-     * @throws Exception
-     */
-    @Override
-    public void configure(WebSecurity web) throws Exception {
-        web.ignoring().antMatchers("/*.html");
-    }
-
     @Bean
     public AuthenticationEventPublisher authenticationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
         return new DefaultAuthenticationEventPublisher(applicationEventPublisher);
@@ -104,22 +113,38 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Bean
-    public CustomLoginFilter customLoginFilter() throws Exception {
-        //config custom login filter
+    public CookieCsrfTokenRepository cookieCsrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookieName("csrf-token");
+        repository.setHeaderName("X-CSRF-TOKEN");
+        repository.setCookiePath("/");
+        return repository;
+    }
+
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
+    @Bean
+    public CustomLoginFilter customLoginFilter(AuthenticationManager authenticationManager,
+                                               SecurityContextRepository securityContextRepository) {
         CustomLoginFilter customLoginFilter = new CustomLoginFilter();
-        customLoginFilter.setAuthenticationManager(authenticationManagerBean());
+        customLoginFilter.setAuthenticationManager(authenticationManager);
+        customLoginFilter.setSecurityContextRepository(securityContextRepository);
         customLoginFilter.setAuthenticationSuccessHandler((httpServletRequest, httpServletResponse, authentication) -> {
-            User user = (User) authentication.getPrincipal();
-            log.debug("process custom login response for [{}]", user.getUsername());
-            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
+            Object principal = authentication.getPrincipal();
+            String username = principal instanceof UserDetails userDetails ? userDetails.getUsername() : String.valueOf(principal);
+            log.debug("process custom login response for [{}]", username);
+            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             JSONObject data = new JSONObject();
-            data.put("user", user.getUsername());
+            data.put("user", username);
             data.put("session", httpServletRequest.getSession().getId());
             httpServletResponse.getWriter().write(data.toJSONString());
         });
         customLoginFilter.setAuthenticationFailureHandler((httpServletRequest, httpServletResponse, e) -> {
             log.debug("process custom login fail [{}]", e.getMessage());
-            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
+            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             JSONObject data = new JSONObject();
             data.put("msg", e.getMessage());
             httpServletResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
@@ -129,22 +154,24 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Bean
-    public CustomTokenAuthenticationFilter customTokenAuthenticationFilter() throws Exception {
-        //config custom token auth filter
+    public CustomTokenAuthenticationFilter customTokenAuthenticationFilter(AuthenticationManager authenticationManager,
+                                                                           SecurityContextRepository securityContextRepository) {
         CustomTokenAuthenticationFilter customTokenAuthenticationFilter = new CustomTokenAuthenticationFilter();
-        customTokenAuthenticationFilter.setAuthenticationManager(authenticationManagerBean());
+        customTokenAuthenticationFilter.setAuthenticationManager(authenticationManager);
+        customTokenAuthenticationFilter.setSecurityContextRepository(securityContextRepository);
         customTokenAuthenticationFilter.setAuthenticationSuccessHandler((httpServletRequest, httpServletResponse, authentication) -> {
-            String user = (String) authentication.getPrincipal();
-            log.debug("process custom token login response for [{}]", user);
-            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
+            Object principal = authentication.getPrincipal();
+            String username = principal instanceof UserDetails userDetails ? userDetails.getUsername() : String.valueOf(principal);
+            log.debug("process custom token login response for [{}]", username);
+            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             JSONObject data = new JSONObject();
-            data.put("user", user);
+            data.put("user", username);
             data.put("session", httpServletRequest.getSession().getId());
             httpServletResponse.getWriter().write(data.toJSONString());
         });
         customTokenAuthenticationFilter.setAuthenticationFailureHandler((httpServletRequest, httpServletResponse, e) -> {
             log.debug("process custom token login fail [{}]", e.getMessage());
-            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
+            httpServletResponse.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             JSONObject data = new JSONObject();
             data.put("msg", e.getMessage());
             httpServletResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
@@ -154,46 +181,46 @@ public class SpringSecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Bean
-    public DefaultWebSecurityExpressionHandler defaultWebSecurityExpressionHandler() {
-        DefaultWebSecurityExpressionHandler expressionHandler = new DefaultWebSecurityExpressionHandler();
-        expressionHandler.setPermissionEvaluator(ssdPermissionEvaluator);
-        return expressionHandler;
-    }
-
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http.formLogin()
-                .loginPage("/login.html")
-                .loginProcessingUrl("/your-login-path")
-                .defaultSuccessUrl("/your-success-path")
-                .permitAll()
-                .and()
-                .authorizeRequests()
-                .antMatchers("/", "/info/**")
-                .permitAll()
-                .antMatchers("/admin/**")
-                .hasAuthority("admin")
-                .antMatchers("/test/**")
-                .hasAuthority("test")
-                .anyRequest()
-                .authenticated()
-                .and()
-                .exceptionHandling()
-                .accessDeniedPage("/403.html");
-        http.logout()
-                .addLogoutHandler(customLogoutHandler())
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
-                .logoutSuccessUrl("/info");
-        http.rememberMe()
-                .rememberMeParameter("rme")
-                .userDetailsService(userDetailsService())
-                .tokenRepository(persistentTokenRepository());
-        CookieCsrfTokenRepository cookieCsrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        cookieCsrfTokenRepository.setCookieName("csrf-token");
-        http.csrf()
-                .csrfTokenRepository(cookieCsrfTokenRepository);
-        http.addFilterAfter(customLoginFilter(), CorsFilter.class);
-        http.addFilterAfter(customTokenAuthenticationFilter(), CorsFilter.class);
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   CustomLoginFilter customLoginFilter,
+                                                   CustomTokenAuthenticationFilter customTokenAuthenticationFilter) throws Exception {
+        http
+                .formLogin(form -> form
+                        .loginPage("/login.html")
+                        .loginProcessingUrl("/your-login-path")
+                        .defaultSuccessUrl("/info")
+                        .permitAll())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/",
+                                "/info/**",
+                                "/login.html",
+                                "/custom-login.html",
+                                "/custom-token-login.html",
+                                "/403.html",
+                                "/your-custom-login-path",
+                                "/your-custom-token-login-path"
+                        ).permitAll()
+                        .requestMatchers("/admin/**").hasAuthority("admin")
+                        .requestMatchers("/test/**").hasAuthority("test")
+                        .anyRequest().authenticated())
+                .exceptionHandling(ex -> ex.accessDeniedPage("/403.html"))
+                .logout(logout -> logout
+                        .addLogoutHandler(customLogoutHandler())
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/info"))
+                .rememberMe(remember -> remember
+                        .rememberMeParameter("rme")
+                        .userDetailsService(userDetailsService())
+                        .tokenRepository(persistentTokenRepository()))
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(cookieCsrfTokenRepository())
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        .ignoringRequestMatchers("/your-custom-login-path", "/your-custom-token-login-path"))
+                .addFilterAfter(new CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter.class)
+                .addFilterAfter(customLoginFilter, CorsFilter.class)
+                .addFilterAfter(customTokenAuthenticationFilter, CorsFilter.class);
+        return http.build();
     }
 
 }

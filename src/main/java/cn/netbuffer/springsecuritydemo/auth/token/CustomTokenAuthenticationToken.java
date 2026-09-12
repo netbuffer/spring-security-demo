@@ -5,15 +5,25 @@ import org.springframework.security.core.GrantedAuthority;
 import java.util.Collection;
 
 /**
- * custom auth token info
+ * 自定义 Token 认证对象
+ * <p>封装从 HTTP Header ("token") 中提取的 Token 信息及解析出的用户名与权限列表。</p>
  */
 public class CustomTokenAuthenticationToken extends AbstractAuthenticationToken {
 
-    private String token;
+    private final String token;
+    private final String principal;
 
     public CustomTokenAuthenticationToken(String token, Collection<? extends GrantedAuthority> authorities) {
         super(authorities);
         this.token = token;
+        if (token != null && token.contains(":")) {
+            this.principal = token.split(":", 2)[1];
+        } else {
+            this.principal = token;
+        }
+        if (authorities != null && !authorities.isEmpty()) {
+            super.setAuthenticated(true);
+        }
     }
 
     @Override
@@ -23,7 +33,6 @@ public class CustomTokenAuthenticationToken extends AbstractAuthenticationToken 
 
     @Override
     public Object getPrincipal() {
-        //parse token to get user
-        return token.split(":")[1];
+        return principal;
     }
 }

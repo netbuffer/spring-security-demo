@@ -1,0 +1,139 @@
+@startuml class-diagram
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FFFFFF
+skinparam packageBackgroundColor #FAFAFA
+skinparam packageBorderColor #DDDDDD
+
+title 核心类与接口关系图 (Class & Interface Diagram)
+
+package "org.springframework.security.core" {
+    interface Authentication
+    abstract class AbstractAuthenticationToken implements Authentication
+    interface AuthenticationManager {
+        +authenticate(Authentication): Authentication
+    }
+    interface AuthenticationProvider {
+        +authenticate(Authentication): Authentication
+        +supports(Class<?>): boolean
+    }
+    interface UserDetailsService {
+        +loadUserByUsername(String): UserDetails
+    }
+    interface UserDetails
+    interface PermissionEvaluator {
+        +hasPermission(Authentication, Object, Object): boolean
+        +hasPermission(Authentication, Serializable, String, Object): boolean
+    }
+}
+
+package "org.springframework.security.web" {
+    abstract class AbstractAuthenticationProcessingFilter
+    interface LogoutHandler {
+        +logout(HttpServletRequest, HttpServletResponse, Authentication): void
+    }
+    interface SecurityContextRepository {
+        +saveContext(SecurityContext, HttpServletRequest, HttpServletResponse): void
+        +loadDeferredContext(HttpServletRequest): DeferredSecurityContext
+    }
+}
+
+package "cn.netbuffer.springsecuritydemo" {
+    package "config" {
+        class SpringSecurityConfig {
+            +securityFilterChain(HttpSecurity, CustomLoginFilter, CustomTokenAuthenticationFilter): SecurityFilterChain
+            +authenticationManager(List<AuthenticationProvider>): AuthenticationManager
+            +methodSecurityExpressionHandler(): MethodSecurityExpressionHandler
+            +securityContextRepository(): SecurityContextRepository
+            +cookieCsrfTokenRepository(): CookieCsrfTokenRepository
+        }
+    }
+
+    package "auth.token" {
+        class CustomTokenAuthenticationToken extends AbstractAuthenticationToken {
+            -token: String
+            -principal: String
+            +getCredentials(): Object
+            +getPrincipal(): Object
+        }
+    }
+
+    package "auth.provider" {
+        class CustomAuthenticationProvider implements AuthenticationProvider {
+            +authenticate(Authentication): Authentication
+            +supports(Class<?>): boolean
+        }
+    }
+
+    package "filter" {
+        class CustomLoginFilter extends AbstractAuthenticationProcessingFilter {
+            +attemptAuthentication(HttpServletRequest, HttpServletResponse): Authentication
+        }
+        class CustomTokenAuthenticationFilter extends AbstractAuthenticationProcessingFilter {
+            +attemptAuthentication(HttpServletRequest, HttpServletResponse): Authentication
+        }
+    }
+
+    package "service" {
+        class CustomUserDetailsService implements UserDetailsService {
+            -passwordEncoder: PasswordEncoder
+            -users: String[]
+            +loadUserByUsername(String): UserDetails
+        }
+    }
+
+    package "permission" {
+        class SsdPermissionEvaluator implements PermissionEvaluator {
+            ~PERMISSIONS_MAP: Map<String, List<Map<String, String>>>
+            +hasPermission(Authentication, Object, Object): boolean
+            +hasPermission(Authentication, Serializable, String, Object): boolean
+        }
+    }
+
+    package "component" {
+        class CustomLogoutHandler implements LogoutHandler {
+            +logout(HttpServletRequest, HttpServletResponse, Authentication): void
+        }
+    }
+
+    package "controller" {
+        class AppController {
+            +get(): String
+            +access(): String
+            +resource(String): DataObject
+            +resourceHasPermissionRead(): String
+            +resourceHasPermissionWrite(): String
+            +csrfTest(Map): Object
+        }
+        class AdminController {
+            +get(): String
+        }
+        class TestController {
+            +get(): String
+        }
+        class InfoController {
+            -appName: String
+            +get(): String
+            +appName(): String
+        }
+    }
+
+    package "pojo" {
+        class DataObject {
+            -owner: String
+            -data: String
+        }
+    }
+}
+
+' 依赖/使用关系
+SpringSecurityConfig ..> CustomLoginFilter : 构造配置
+SpringSecurityConfig ..> CustomTokenAuthenticationFilter : 构造配置
+SpringSecurityConfig ..> CustomAuthenticationProvider : 注册 Provider
+SpringSecurityConfig ..> CustomUserDetailsService : 注册 UserDetailsService
+SpringSecurityConfig ..> SsdPermissionEvaluator : 注入权限评估器
+CustomAuthenticationProvider ..> CustomTokenAuthenticationToken : 校验与创建
+CustomTokenAuthenticationFilter ..> CustomTokenAuthenticationToken : 封装凭据
+AppController ..> DataObject : 返回资源模型
+
+@enduml

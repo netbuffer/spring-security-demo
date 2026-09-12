@@ -1,0 +1,42 @@
+### 1. 预请求：获取 CSRF Cookie Token (访问 /login.html 后系统会植入 csrf-token Cookie)
+GET {{host}}/login.html
+
+> {%
+    // 从 Cookie 中获取 csrf-token
+    let csrfToken = client.global.get("csrf-token");
+    if (!csrfToken) {
+        // 部分环境下尝试从 response header 中的 Set-Cookie 解析
+        let cookies = response.headers.valuesOf("Set-Cookie");
+        for (let cookie of cookies) {
+            if (cookie.indexOf("csrf-token=") !== -1) {
+                let match = cookie.match(/csrf-token=([^;]+)/);
+                if (match) {
+                    client.global.set("csrf_token", match[1]);
+                }
+            }
+        }
+    } else {
+        client.global.set("csrf_token", csrfToken);
+    }
+%}
+
+### 2. 标准 Form 表单登录 - 用户 admin (密码: admin)
+# 注：POST 表单登录时需携带 _csrf 参数（若 csrf 开启）
+POST {{host}}/your-login-path
+Content-Type: application/x-www-form-urlencoded
+
+username=admin&password=admin&_csrf={{csrf_token}}
+
+### 3. 表单登录成功后，访问 admin 专属受保护接口 (需要拥有 admin 角色/权限)
+GET {{host}}/admin
+Accept: text/plain
+
+### 4. 表单登录成功后，访问 app 登录即可访问的通用接口
+GET {{host}}/app
+Accept: text/plain
+
+### 5. 退出登录 (Form 退出方式)
+POST {{host}}/logout
+Content-Type: application/x-www-form-urlencoded
+
+_csrf={{csrf_token}}

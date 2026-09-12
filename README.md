@@ -1,29 +1,63 @@
 # spring-security-demo
-![](https://img.shields.io/static/v1?label=sppring-boot&message=2.5.4&color=blue)
-![](https://img.shields.io/static/v1?label=sppring-security&message=2.5.4&color=green)
-![](https://img.shields.io/static/v1?label=fastjson&message=1.2.78&color=blue)
-> spring-security test project  
-* https://github.com/netbuffer/spring-security-demo
-* https://gitee.com/netbuffer/spring-security-demo
-* https://docs.spring.io/spring-security/site/docs/current/reference/html5/
 
-### help
-* look for the default password generated from the console:`Using generated security password:` default generated user is `user` 
-* [test login process](http://localhost:18000/app)  
-![http request filter-chain](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/architecture/multi-securityfilterchain.png)
-* [SecurityContextHolder](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/securitycontextholder.png)  
-![img.png](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/securitycontextholder.png)
-```
-@Secure
-@RolesAllowed
-@PreAuthorize
-@PostAuthorize
-@PreFilter
-@PostFilter
-```
-* [Security Filters](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#servlet-security-filters)
-* [abstractprocessingfilter](https://docs.spring.io/spring-security/site/docs/current/reference/html5/#servlet-authentication-abstractprocessingfilter)
-* ![AbstractAuthenticationProcessingFilter](https://docs.spring.io/spring-security/site/docs/current/reference/html5/images/servlet/authentication/architecture/abstractauthenticationprocessingfilter.png)
+![](https://img.shields.io/static/v1?label=Spring%20Boot&message=4.1.1&color=green)
+![](https://img.shields.io/static/v1?label=Spring%20Security&message=7.1.1&color=blue)
+![](https://img.shields.io/static/v1?label=Java&message=21&color=orange)
 
-### articles
-* [Spring Boot整合Spring Security最简单的用法](https://www.toutiao.com/i7013356585607086625)
+> Spring Security 核心概念与多认证模式演示工程
+
+---
+
+## 👥 测试账号
+
+| 用户名 | 密码 | 具备权限/角色 | 说明 |
+|:---|:---|:---|:---|
+| `admin` | `admin` | `admin` | 管理员账号，拥有 `/admin` 及细粒度 read 权限 |
+| `test` | `test` | `test` | 普通测试账号，拥有 `/test` 权限 |
+
+*密码即用户名自身，在内存中完成 DelegatingPasswordEncoder 加密与校验。*
+
+---
+
+## 🚀 快速启动与功能测试
+
+### 1. 运行项目
+```bash
+mvn spring-boot:run
+```
+默认服务端口：`18000`
+
+### 2. 核心端点
+- **表单登录**：http://localhost:18000/login.html（处理路径 `/your-login-path`，默认跳转 `/info`，支持 Remember-Me）
+- **JSON 登录**：http://localhost:18000/custom-login.html（`POST /your-custom-login-path`，接收 JSON 凭据，返回 Session ID）
+- **Token 认证**：http://localhost:18000/custom-token-login.html（`POST /your-custom-token-login-path`，Header 携带 `token` 进行认证）
+- **公共接口**：http://localhost:18000/info、http://localhost:18000/info/appName（无需认证）
+- **管理员接口**：http://localhost:18000/admin（仅限 `admin` 权限）
+- **测试员接口**：http://localhost:18000/test（仅限 `test` 权限）
+- **受保护接口**：http://localhost:18000/app（登录用户可访问）
+
+---
+
+## 📚 权限控制与方法安全注解
+
+```java
+@PreAuthorize("hasAuthority('admin')")              // 方法调用前鉴权
+@PostAuthorize("returnObject.owner == principal.username") // 方法调用后对象归属校验
+@PreAuthorize("hasPermission('target-id', 'read')") // 自定义 PermissionEvaluator 细粒度权限校验
+@Secured("ROLE_USER")                              // 角色级别鉴权
+@PreFilter / @PostFilter                           // 集合入参及返回值过滤
+```
+
+---
+
+## 🛠️ 测试与设计资源
+
+- **HTTP Client 脚本**：根目录 `http/` 下提供了完整的 IntelliJ IDEA `.http` 测试套件（涵盖公开放行、表单登录、JSON登录、Token认证、方法鉴权、CSRF 防护、退出等），可直接批量运行。
+- **架构时序图**：根目录 `docs/` 下提供了过滤器链、认证流程、鉴权流程及类关系的 PlantUML 设计图。
+
+---
+
+## 📖 参考文档
+
+- [Spring Security 官方文档](https://docs.spring.io/spring-security/reference/)
+- [Spring Boot 整合 Spring Security 最简单的用法](https://www.toutiao.com/i7013356585607086625)

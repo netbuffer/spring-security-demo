@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: @project.name@
+  output:
+    ansi:
+      enabled: always
 
 logging:
   level:
@@ -11,12 +14,4 @@ logging:
       netbuffer: debug
     org:
       springframework:
-        security:
-          authentication:
-            dao:
-              DaoAuthenticationProvider: debug
-          web:
-            FilterChainProxy: debug
-            access:
-              intercept:
-                FilterSecurityInterceptor: trace
+        security: debug

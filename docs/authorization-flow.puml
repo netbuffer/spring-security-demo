@@ -1,0 +1,64 @@
+@startuml authorization-flow
+!theme plain
+autonumber
+skinparam responseMessageBelowArrow true
+skinparam participantBackgroundColor #FFFFFF
+skinparam participantBorderColor #2B579A
+
+title 授权与方法级安全校验时序图 (Authorization & Method Security Flow)
+
+actor "客户端 (Client)" as Client
+participant "SecurityFilterChain\n(AuthorizationFilter)" as UrlFilter
+participant "DispatcherServlet" as Dispatcher
+participant "MethodSecurityInterceptor\n(AOP Proxy)" as MethodAop
+participant "MethodSecurityExpressionHandler" as ExprHandler
+participant "SsdPermissionEvaluator" as PermEvaluator
+participant "AppController" as Controller
+participant "SecurityContextHolder" as Ctx
+
+== 场景一：URL 级别权限控制 (例如访问 /admin) ==
+Client -> UrlFilter : GET /admin (携带登录态 Session Cookie)
+UrlFilter -> Ctx : 获取当前认证 Authentication
+Ctx --> UrlFilter : 返回当前登录用户及权限
+alt 权限包含 "admin"
+    UrlFilter -> Dispatcher : 放行至后台
+    Dispatcher -> Controller : 调用 AdminController.get()
+    Controller --> Client : 200 OK "admin"
+else 权限不包含 "admin"
+    UrlFilter --> Client : 403 Forbidden (转发至 /403.html)
+end
+
+== 场景二：方法级前置细粒度鉴权 @PreAuthorize("hasPermission('target-id','read')") ==
+Client -> UrlFilter : GET /app/resource/target-id/read
+UrlFilter -> Dispatcher : URL 规则满足 authenticated()，放行
+Dispatcher -> MethodAop : 触发 Controller 代理切面拦截
+MethodAop -> ExprHandler : 解析表达式 "hasPermission('target-id','read')"
+ExprHandler -> PermEvaluator : hasPermission(authentication, "target-id", "read")
+PermEvaluator -> PermEvaluator : 查询用户权限字典 PERMISSIONS_MAP
+alt 具备 target-id 的 read 权限
+    PermEvaluator --> ExprHandler : 返回 true
+    ExprHandler --> MethodAop : 鉴权通过
+    MethodAop -> Controller : 执行 resourceHasPermissionRead()
+    Controller --> Client : 200 OK "ok"
+else 不具备权限
+    PermEvaluator --> ExprHandler : 返回 false
+    ExprHandler --> MethodAop : 拒绝访问
+    MethodAop --> Client : 403 Forbidden (转发至 /403.html)
+end
+
+== 场景三：方法级后置鉴权 @PostAuthorize("returnObject.owner == principal.username") ==
+Client -> UrlFilter : GET /app/resource?owner=admin
+UrlFilter -> Dispatcher : 放行
+Dispatcher -> MethodAop : 前置拦截放行
+MethodAop -> Controller : 先执行目标方法 resource(owner)
+Controller --> MethodAop : 返回 DataObject(owner="admin")
+MethodAop -> ExprHandler : 执行后置校验: returnObject.owner == principal.username
+alt owner 与当前登录主体用户名一致
+    ExprHandler --> MethodAop : 匹配成功 (true)
+    MethodAop --> Client : 200 OK JSON {"owner":"admin","data":null}
+else owner 与当前登录主体用户名不匹配 (如 owner=test)
+    ExprHandler --> MethodAop : 匹配失败 (false)
+    MethodAop --> Client : 403 Forbidden (转发至 /403.html)
+end
+
+@enduml

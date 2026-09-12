@@ -1,0 +1,100 @@
+### 1. 预请求：获取 CSRF Cookie
+GET {{host}}/login.html
+
+> {%
+    let cookies = response.headers.valuesOf("Set-Cookie");
+    for (let cookie of cookies) {
+        if (cookie.indexOf("csrf-token=") !== -1) {
+            let match = cookie.match(/csrf-token=([^;]+)/);
+            if (match) {
+                client.global.set("csrf_token", match[1]);
+            }
+        }
+    }
+%}
+
+### 2. 登录为 admin 用户
+POST {{host}}/your-custom-login-path
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf_token}}
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+
+### 3. 方法级前置鉴权 @PreAuthorize("hasAuthority('admin')") -> /app/access
+GET {{host}}/app/access
+Accept: text/plain
+
+### 4. 方法级后置鉴权 @PostAuthorize("returnObject.owner == principal.username") - 成功场景
+# 传入 owner=admin，返回值 owner 为 admin，与 principal.username 相同，鉴权通过
+GET {{host}}/app/resource?owner=admin
+Accept: application/json
+
+> {%
+    client.test("Owner matches principal", function() {
+        client.assert(response.status === 200, "Should be 200 OK");
+        client.assert(response.body.owner === "admin", "Owner must match admin");
+    });
+%}
+
+### 5. 方法级后置鉴权 @PostAuthorize("returnObject.owner == principal.username") - 失败场景
+# 传入 owner=otherUser，返回值 owner 不等于当前登录人 admin，预期拒绝 (403)
+GET {{host}}/app/resource?owner=otherUser
+Accept: application/json
+
+> {%
+    client.test("Owner mismatch triggers 403", function() {
+        client.assert(response.status === 403, "Expected 403 Forbidden");
+    });
+%}
+
+### 6. PermissionEvaluator 细粒度权限校验 - 具备权限
+# 对应 @PreAuthorize("hasPermission('target-id', 'read')")
+# 在 SsdPermissionEvaluator 中内置 admin 用户拥有 target-id 的 read 权限
+GET {{host}}/app/resource/target-id/read
+Accept: text/plain
+
+> {%
+    client.test("Has read permission", function() {
+        client.assert(response.status === 200, "Expected 200 OK");
+    });
+%}
+
+### 7. PermissionEvaluator 细粒度权限校验 - 不具备权限
+# 对应 @PreAuthorize("hasPermission('target-id', 'write')")
+# 在 SsdPermissionEvaluator 中 admin 未配置 target-id 的 write 权限，预期 403
+GET {{host}}/app/resource/target-id/write
+Accept: text/plain
+
+> {%
+    client.test("Does not have write permission", function() {
+        client.assert(response.status === 403, "Expected 403 Forbidden");
+    });
+%}
+
+### 8. CSRF 防护测试 - 携带正确 X-CSRF-TOKEN
+POST {{host}}/app/csrf-test
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf_token}}
+
+{
+  "msg": "hello csrf",
+  "timestamp": 123456
+}
+
+### 9. CSRF 防护测试 - 未携带或携带错误 CSRF Token (预期 403 拒绝)
+POST {{host}}/app/csrf-test
+Content-Type: application/json
+X-CSRF-TOKEN: invalid-csrf-token
+
+{
+  "msg": "this should fail"
+}
+
+> {%
+    client.test("CSRF failure returns 403", function() {
+        client.assert(response.status === 403, "Expected 403 when CSRF token is invalid");
+    });
+%}

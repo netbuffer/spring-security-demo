@@ -23,7 +23,7 @@
             .then(json => {
                 console.log("response json:%o", json);
                 if (json.session) {
-                    location.href = "/" + user;
+                    location.href = "/info";
                 } else {
                     alert(json.msg);
                 }

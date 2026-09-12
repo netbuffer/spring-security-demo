@@ -1,0 +1,39 @@
+### 1. 预请求：获取 CSRF Cookie
+GET {{host}}/custom-token-login.html
+
+> {%
+    let cookies = response.headers.valuesOf("Set-Cookie");
+    for (let cookie of cookies) {
+        if (cookie.indexOf("csrf-token=") !== -1) {
+            let match = cookie.match(/csrf-token=([^;]+)/);
+            if (match) {
+                client.global.set("csrf_token", match[1]);
+            }
+        }
+    }
+%}
+
+### 2. 自定义 Header Token 认证 - 模拟 admin (token: bearer:admin)
+POST {{host}}/your-custom-token-login-path
+token: bearer:admin
+X-CSRF-TOKEN: {{csrf_token}}
+
+> {%
+    client.test("Token login success", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(response.body.user === "admin", "User should be admin");
+    });
+%}
+
+### 3. Token 认证成功后访问 admin 权限接口
+GET {{host}}/admin
+Accept: text/plain
+
+### 4. 自定义 Header Token 认证 - 模拟 test (token: bearer:test)
+POST {{host}}/your-custom-token-login-path
+token: bearer:test
+X-CSRF-TOKEN: {{csrf_token}}
+
+### 5. test 用户访问 /test 接口 (允许)
+GET {{host}}/test
+Accept: text/plain

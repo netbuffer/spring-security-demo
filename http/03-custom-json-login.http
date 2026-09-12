@@ -1,0 +1,68 @@
+### 1. 预请求：获取 CSRF Cookie
+GET {{host}}/custom-login.html
+
+> {%
+    let cookies = response.headers.valuesOf("Set-Cookie");
+    for (let cookie of cookies) {
+        if (cookie.indexOf("csrf-token=") !== -1) {
+            let match = cookie.match(/csrf-token=([^;]+)/);
+            if (match) {
+                client.global.set("csrf_token", match[1]);
+            }
+        }
+    }
+%}
+
+### 2. 自定义 JSON 登录 - admin 用户 (密码: admin)
+# Header 中携带 X-CSRF-TOKEN
+POST {{host}}/your-custom-login-path
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf_token}}
+
+{
+  "username": "admin",
+  "password": "admin"
+}
+
+> {%
+    client.test("Status code is 200", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+    client.test("Login user is admin", function() {
+        client.assert(response.body.user === "admin", "User should be admin");
+    });
+%}
+
+### 3. 自定义 JSON 登录 - 错误密码测试 (预期 401 Unauthorized)
+POST {{host}}/your-custom-login-path
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf_token}}
+
+{
+  "username": "admin",
+  "password": "wrong-password"
+}
+
+> {%
+    client.test("Status code is 401", function() {
+        client.assert(response.status === 401, "Expected 401 for wrong credentials");
+    });
+%}
+
+### 4. 自定义 JSON 登录 - test 用户 (密码: test)
+POST {{host}}/your-custom-login-path
+Content-Type: application/json
+X-CSRF-TOKEN: {{csrf_token}}
+
+{
+  "username": "test",
+  "password": "test"
+}
+
+### 5. test 用户访问 /test 专属接口 (权限允许)
+GET {{host}}/test
+Accept: text/plain
+
+### 6. test 用户访问 /admin 专属接口 (权限不足，触发 403 页面/拒绝)
+GET {{host}}/admin
+Accept: text/plain

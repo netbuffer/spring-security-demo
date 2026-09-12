@@ -1,0 +1,85 @@
+@startuml architecture
+!theme plain
+skinparam componentStyle rectangle
+skinparam backgroundColor #FFFFFF
+skinparam packageBackgroundColor #FAFAFA
+skinparam packageBorderColor #DDDDDD
+
+title 系统整体分层架构设计图 (System Architecture)
+
+actor "客户端 / 浏览器\n(Browser / REST Client)" as Client
+
+package "Web 接入层 (HTTP Transport Layer)" {
+    [DispatcherServlet] as Dispatcher
+    [Filter Engine (FilterChainProxy)] as FilterEngine
+}
+
+package "Spring Security 安全控制层 (Security Architecture Layer)" {
+    package "认证子系统 (Authentication)" {
+        [CustomLoginFilter] as LoginFilter
+        [CustomTokenAuthenticationFilter] as TokenFilter
+        [UsernamePasswordAuthenticationFilter] as FormLoginFilter
+        [ProviderManager\n(AuthenticationManager)] as AuthManager
+        [DaoAuthenticationProvider] as DaoProvider
+        [CustomAuthenticationProvider] as TokenProvider
+        [CustomUserDetailsService] as UserDetailsService
+        [PasswordEncoder] as Encoder
+    }
+
+    package "授权与访问控制 (Authorization & Method Security)" {
+        [AuthorizationFilter] as UrlAuthFilter
+        [MethodSecurityInterceptor\n(@PreAuthorize / @PostAuthorize)] as MethodSecurity
+        [MethodSecurityExpressionHandler] as ExprHandler
+        [SsdPermissionEvaluator] as PermEvaluator
+    }
+
+    package "安全基础设施与会话 (Security Infrastructure & State)" {
+        [SecurityContextHolder] as CtxHolder
+        [HttpSessionSecurityContextRepository] as CtxRepo
+        [CookieCsrfTokenRepository] as CsrfRepo
+        [InMemoryTokenRepositoryImpl\n(Remember-Me)] as RememberMeRepo
+        [CustomLogoutHandler] as LogoutHandler
+        [AuthenticationEventListener] as AuthListener
+    }
+}
+
+package "业务控制器层 (Controller Layer)" {
+    [InfoController\n(/info/**)] as InfoCtrl
+    [AdminController\n(/admin/**)] as AdminCtrl
+    [TestController\n(/test/**)] as TestCtrl
+    [AppController\n(/app/**)] as AppCtrl
+}
+
+' 关联依赖关系
+Client --> FilterEngine : 1. 发送 HTTP 请求
+FilterEngine --> FormLoginFilter : 表单登录请求
+FilterEngine --> LoginFilter : 自定义 JSON 登录
+FilterEngine --> TokenFilter : 自定义 Header Token 认证
+FilterEngine --> UrlAuthFilter : URL 鉴权拦截
+
+FormLoginFilter --> AuthManager : 委派认证
+LoginFilter --> AuthManager : 委派认证
+TokenFilter --> AuthManager : 委派认证
+
+AuthManager --> DaoProvider : 路由账密凭证
+AuthManager --> TokenProvider : 路由 Token 凭证
+
+DaoProvider --> UserDetailsService : 查询用户信息
+DaoProvider --> Encoder : 校验密码加密哈希
+
+LoginFilter ..> CtxRepo : 认证成功写入 Session
+TokenFilter ..> CtxRepo : 认证成功写入 Session
+AuthManager ..> AuthListener : 发布认证成功/失败事件
+
+UrlAuthFilter --> Dispatcher : 放行后分发
+Dispatcher --> InfoCtrl : 公开接口调用
+Dispatcher --> AdminCtrl : URL 权限 admin 接口
+Dispatcher --> TestCtrl : URL 权限 test 接口
+Dispatcher --> AppCtrl : 方法级鉴权接口
+
+AppCtrl --> MethodSecurity : AOP 拦截方法鉴权
+MethodSecurity --> ExprHandler : 解析 SpEL 表达式
+ExprHandler --> PermEvaluator : 执行 hasPermission(...)
+MethodSecurity --> CtxHolder : 获取当前登录主体 Principal
+
+@enduml

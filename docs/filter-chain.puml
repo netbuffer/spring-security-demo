@@ -1,0 +1,95 @@
+@startuml filter-chain
+!theme plain
+skinparam activityBackgroundColor #FFFFFF
+skinparam activityBorderColor #2B579A
+skinparam activityDiamondBackgroundColor #F3F4F6
+skinparam activityDiamondBorderColor #2B579A
+skinparam noteBackgroundColor #FFFEEB
+skinparam noteBorderColor #CCCCCC
+
+title Spring Security 过滤器链执行架构图 (Security Filter Chain Pipeline)
+
+start
+
+:收到 HTTP 请求 (HttpServletRequest);
+
+:1. DisableEncodeUrlFilter\n(禁用 URL 重写 sessionid);
+
+:2. WebAsyncManagerIntegrationFilter\n(集成异步请求 SecurityContext 传播);
+
+:3. SecurityContextHolderFilter\n(从 SecurityContextRepository 加载已有安全上下文);
+
+:4. HeaderWriterFilter\n(写入安全响应头，如 X-Content-Type-Options, X-Frame-Options);
+
+if (匹配 POST /your-custom-login-path ?) then (yes)
+    :5. CustomLoginFilter\n(解析请求体 JSON {"username","password"}\n提交 AuthenticationManager 认证);
+    if (认证成功?) then (yes)
+        :保存 SecurityContext 至 HttpSession\n返回 200 JSON 包含用户信息与 sessionid;
+        stop
+    else (no)
+        :返回 401 JSON 错误信息;
+        stop
+    endif
+endif
+
+if (匹配 POST /your-custom-token-login-path ?) then (yes)
+    :6. CustomTokenAuthenticationFilter\n(提取 Header 中的 "token"\n封装 CustomTokenAuthenticationToken 进行认证);
+    if (认证成功?) then (yes)
+        :保存 SecurityContext 至 HttpSession\n返回 200 JSON 包含用户信息与 sessionid;
+        stop
+    else (no)
+        :返回 401 JSON 错误信息;
+        stop
+    endif
+endif
+
+:7. CsrfFilter\n(基于 CookieCsrfTokenRepository 校验 X-CSRF-TOKEN / _csrf);
+if (是非安全请求(POST/PUT/DELETE) 且 Token 无效/缺失?) then (yes)
+    :抛出 CsrfException\n响应 403 Forbidden;
+    stop
+else (no)
+endif
+
+if (匹配 POST /logout ?) then (yes)
+    :8. LogoutFilter\n(执行 CustomLogoutHandler 记录日志\n清理 Cookie/Session/SecurityContext 并重定向到 /info);
+    stop
+endif
+
+if (匹配 POST /your-login-path ?) then (yes)
+    :9. UsernamePasswordAuthenticationFilter\n(标准表单登录认证);
+    if (认证成功?) then (yes)
+        :重定向至 /info (或保存的原访问路径);
+        stop
+    else (no)
+        :重定向至 /login.html?error;
+        stop
+    endif
+endif
+
+:10. RequestCacheAwareFilter\n(处理登录成功后的原请求缓存恢复);
+
+:11. SecurityContextHolderAwareRequestFilter\n(封装 HttpServletRequest 扩展 security 方法如 isUserInRole);
+
+:12. RememberMeAuthenticationFilter\n(若未认证且请求携带 remember-me cookie，尝试自动登录);
+
+:13. AnonymousAuthenticationFilter\n(若当前无认证身份，赋予匿名主体 ROLE_ANONYMOUS);
+
+:14. ExceptionTranslationFilter\n(捕获后续抛出的 AccessDeniedException 与 AuthenticationException);
+
+:15. AuthorizationFilter\n(依据 authorizeHttpRequests 规则进行 URL 鉴权);
+if (是否有访问权限?) then (yes)
+    :进入 Spring MVC DispatcherServlet\n调用业务 Controller 并触发方法级注解鉴权;
+else (no)
+    if (是匿名用户未登录?) then (yes)
+        :触发重定向至 /login.html;
+    else (已登录但权限不足)
+        :转发至 /403.html;
+    endif
+    stop
+endif
+
+:Controller 执行完毕返回业务响应;
+
+stop
+
+@enduml

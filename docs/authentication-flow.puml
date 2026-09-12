@@ -1,0 +1,61 @@
+@startuml authentication-flow
+!theme plain
+autonumber
+skinparam responseMessageBelowArrow true
+skinparam participantBackgroundColor #FFFFFF
+skinparam participantBorderColor #2B579A
+
+title 多模式身份认证时序图 (Multi-Mode Authentication Flows)
+
+actor "客户端 (Client)" as Client
+participant "Filter Chain" as Chain
+participant "CustomLoginFilter / \nCustomTokenAuthFilter" as Filter
+participant "ProviderManager\n(AuthenticationManager)" as AuthManager
+participant "CustomAuth / \nDaoAuthProvider" as Provider
+participant "CustomUserDetailsService" as UserDetailsSvc
+participant "PasswordEncoder" as Encoder
+participant "SecurityContextRepository\n(HttpSession)" as CtxRepo
+participant "AuthenticationEventListener" as EventListener
+
+== 场景 A：自定义 JSON 登录流程 (POST /your-custom-login-path) ==
+Client -> Chain : POST /your-custom-login-path\n(JSON: {"username":"admin","password":"admin"}\nHeader: X-CSRF-TOKEN)
+Chain -> Filter : 拦截并解析 JSON Body
+Filter -> Filter : 封装 UsernamePasswordAuthenticationToken(user, pass)
+Filter -> AuthManager : authenticate(authentication)
+AuthManager -> Provider : 路由至 DaoAuthenticationProvider
+Provider -> UserDetailsSvc : loadUserByUsername("admin")
+UserDetailsSvc --> Provider : 返回 UserDetails(密文密码, 权限集合[admin])
+Provider -> Encoder : matches(rawPassword, encodedPassword)
+Encoder --> Provider : 密码比对成功
+Provider --> AuthManager : 返回已认证 Authentication(主体, 凭据, 权限集合)
+AuthManager -> EventListener : 异步/同步发布 AuthenticationSuccessEvent
+AuthManager --> Filter : 认证成功 Authentication
+Filter -> CtxRepo : saveContext(SecurityContext, req, resp) -> 写入 HttpSession
+Filter --> Client : HTTP 200 JSON\n{"user":"admin","session":"xxxx"}
+
+== 场景 B：自定义 Header Token 认证流程 (POST /your-custom-token-login-path) ==
+Client -> Chain : POST /your-custom-token-login-path\n(Header: "token: bearer:admin", X-CSRF-TOKEN)
+Chain -> Filter : 拦截并提取 Header["token"]
+Filter -> Filter : 封装 CustomTokenAuthenticationToken("bearer:admin", null)
+Filter -> AuthManager : authenticate(tokenAuth)
+AuthManager -> Provider : 路由至 CustomAuthenticationProvider
+Provider -> Provider : 解析 Token 提取用户名并赋予权限列表
+Provider --> AuthManager : 返回已认证 CustomTokenAuthenticationToken
+AuthManager -> EventListener : 发布 AuthenticationSuccessEvent
+AuthManager --> Filter : 认证成功
+Filter -> CtxRepo : saveContext(SecurityContext, req, resp) -> 写入 HttpSession
+Filter --> Client : HTTP 200 JSON\n{"user":"admin","session":"xxxx"}
+
+== 场景 C：认证失败处理 (如密码错误) ==
+Client -> Chain : POST /your-custom-login-path\n(JSON: {"username":"admin","password":"wrong"})
+Chain -> Filter : 拦截并提交认证
+Filter -> AuthManager : authenticate(...)
+AuthManager -> Provider : 校验密码
+Provider -> Encoder : matches(...)
+Encoder --> Provider : 匹配失败
+Provider --> AuthManager : 抛出 BadCredentialsException
+AuthManager -> EventListener : 发布 AbstractAuthenticationFailureEvent
+AuthManager --> Filter : 抛出 AuthenticationException
+Filter --> Client : HTTP 401 JSON\n{"msg":"Bad credentials"}
+
+@enduml

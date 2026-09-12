@@ -1,0 +1,23 @@
+### 1. 公开接口 - 基础信息 (无需登录放行)
+GET {{host}}/info
+Accept: text/plain
+
+### 2. 公开接口 - 获取应用名称 (无需登录放行)
+GET {{host}}/info/appName
+Accept: text/plain
+
+### 3. 公开静态页面 - 登录页
+GET {{host}}/login.html
+
+### 4. 公开静态页面 - 自定义 JSON 登录页
+GET {{host}}/custom-login.html
+
+### 5. 公开静态页面 - 自定义 Token 认证页
+GET {{host}}/custom-token-login.html
+
+### 6. 公开静态页面 - 403 无权限提示页
+GET {{host}}/403.html
+
+### 7. 未登录时访问受保护接口 - 预期 302 重定向至登录页
+GET {{host}}/admin
+Accept: text/html
