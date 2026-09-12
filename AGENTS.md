@@ -70,7 +70,7 @@ Conventional Commits：`<type>: <说明>`（英文祈使句、小写开头、无
 
 ## CI / 发布
 
-`.github/workflows/build.yml`：推送/PR 到 `master`/`main` → 构建并上传 jar；标签 `v*` → GitHub Release + `ghcr.io`。未经要求勿改 workflow 权限或触发条件。
+`.github/workflows/build.yml`：推送/PR 到 `master`/`main` → 构建并上传 jar；标签 `v*` → GitHub Release + `ghcr.io` + Docker Hub。未经要求勿改 workflow 权限或触发条件。
 
 ## 安全与边界
 

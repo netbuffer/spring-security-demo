@@ -29,6 +29,7 @@ mvn spring-boot:run
 
 ### 2. 核心端点
 - **表单登录**：http://localhost:18000/login.html（处理路径 `/your-login-path`，默认跳转 `/info`，支持 Remember-Me）
+- **系统退出**：http://localhost:18000/logout.html（退出测试页面，演示表单及 Fetch 调用 `POST /logout`）
 - **JSON 登录**：http://localhost:18000/custom-login.html（`POST /your-custom-login-path`，接收 JSON 凭据，返回 Session ID）
 - **Token 认证**：http://localhost:18000/custom-token-login.html（`POST /your-custom-token-login-path`，Header 携带 `token` 进行认证）
 - **公共接口**：http://localhost:18000/info、http://localhost:18000/info/appName（无需认证）
@@ -61,3 +62,26 @@ mvn spring-boot:run
 
 - [Spring Security 官方文档](https://docs.spring.io/spring-security/reference/)
 - [Spring Boot 整合 Spring Security 最简单的用法](https://www.toutiao.com/i7013356585607086625)
+
+---
+
+## 📦 CI/CD 与 Docker 镜像
+
+`.github/workflows/build.yml` 定义 4 个 Job：
+
+| Job | 触发条件 | 职责 |
+|-----|----------|------|
+| `build` | push (master/main/v\*) + PR | Dragonwell JDK 21 编译与测试，上传 `target/spring-security-demo.jar` 为 artifact（保留 30 天） |
+| `release` | tag `v*` | 由 artifact 创建 GitHub Release，自动生成 release notes |
+| `docker-ghcr` | tag `v*` | 多架构（linux/amd64 + linux/arm64）构建并推送到 GitHub Container Registry（`ghcr.io`），打 `:<VERSION>` 与 `:latest` |
+| `docker-hub` | tag `v*` | 多架构（linux/amd64 + linux/arm64）构建并推送到 Docker Hub（`javawiki/spring-security-demo`），打 `:<VERSION>` 与 `:latest` |
+
+### 仓库 Secrets 配置
+
+在 GitHub 仓库 **Settings → Secrets and variables → Actions** 中配置：
+
+| Secret | 必填 | 说明 |
+|--------|:----:|------|
+| `DOCKERHUB_USERNAME` | ✓ | Docker Hub 用户名（如 `javawiki`） |
+| `DOCKERHUB_TOKEN` | ✓ | Docker Hub Access Token，从 [hub.docker.com/settings/security](https://hub.docker.com/settings/security) 生成，需 `Read & Write` 权限 |
+| `GITHUB_TOKEN` | - | GitHub Actions 自动注入，**无需手动创建**，由 workflow 的 `permissions: packages: write` 自动赋权 |

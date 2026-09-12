@@ -32,6 +32,24 @@ public class AppController {
     }
 
     /**
+     * 当前登录用户信息接口
+     *
+     * @param authentication 当前认证对象
+     * @return 当前用户名及权限信息
+     */
+    @GetMapping("me")
+    public Object me(org.springframework.security.core.Authentication authentication) {
+        if (authentication == null) {
+            return Map.of("authenticated", false);
+        }
+        return Map.of(
+                "authenticated", authentication.isAuthenticated(),
+                "username", authentication.getName(),
+                "authorities", authentication.getAuthorities().stream().map(Object::toString).toList()
+        );
+    }
+
+    /**
      * 方法级鉴权测试接口（需要 admin 权限）
      *
      * @return 响应 "access"

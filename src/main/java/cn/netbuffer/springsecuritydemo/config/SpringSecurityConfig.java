@@ -189,15 +189,18 @@ public class SpringSecurityConfig {
                         .loginPage("/login.html")
                         .loginProcessingUrl("/your-login-path")
                         .defaultSuccessUrl("/info")
+                        .failureUrl("/login.html?error")
                         .permitAll())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/",
                                 "/info/**",
                                 "/login.html",
+                                "/logout.html",
                                 "/custom-login.html",
                                 "/custom-token-login.html",
                                 "/403.html",
+                                "/tailwind.js",
                                 "/your-custom-login-path",
                                 "/your-custom-token-login-path"
                         ).permitAll()

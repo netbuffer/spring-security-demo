@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统退出测试 - Logout Demo</title>
+    <script src="/tailwind.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen py-10 px-4 flex justify-center items-start text-slate-800">
+    <div class="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200/80 p-8 space-y-6">
+        
+        <!-- 头部标题栏 -->
+        <div class="flex items-center justify-between border-b border-slate-100 pb-5">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center text-2xl font-bold shadow-inner">
+                    🚪
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800 tracking-tight">系统退出与状态测试</h1>
+                    <p class="text-sm text-slate-500 mt-0.5">Spring Security 7+ 认证状态探测与安全登出验证</p>
+                </div>
+            </div>
+            <a href="/login.html" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-blue-600 transition">
+                <span>前往登录</span>
+                <span>&rarr;</span>
+            </a>
+        </div>
+
+        <!-- 1. 会话状态探测卡片 -->
+        <div class="bg-slate-50/70 border border-slate-200 rounded-xl p-6 space-y-4">
+            <div class="space-y-1">
+                <div class="flex items-center space-x-2">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-700">步骤一</span>
+                    <h3 class="text-base font-semibold text-slate-800">会话与认证状态探测</h3>
+                </div>
+                <p class="text-xs text-slate-500">点击下方按钮请求受保护的端点，实时校验当前会话是有效登录还是游客状态：</p>
+            </div>
+
+            <!-- 按钮组：统一高度、内边距与阴影效果 -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button type="button" onclick="checkStatus('/app')"
+                        class="w-full inline-flex justify-center items-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-lg text-xs font-medium shadow-sm hover:shadow transition">
+                    <span class="mr-1.5">🔍</span> 探测 /app
+                </button>
+                <button type="button" onclick="checkStatus('/admin')"
+                        class="w-full inline-flex justify-center items-center px-4 py-2.5 bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white rounded-lg text-xs font-medium shadow-sm hover:shadow transition">
+                    <span class="mr-1.5">🛡️</span> 探测 /admin
+                </button>
+                <button type="button" onclick="checkStatus('/app/me')"
+                        class="w-full inline-flex justify-center items-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-lg text-xs font-medium shadow-sm hover:shadow transition">
+                    <span class="mr-1.5">👤</span> 用户信息 /app/me
+                </button>
+            </div>
+
+            <!-- 探测结果反馈面板 -->
+            <div id="statusResult" class="hidden p-4 rounded-xl text-xs transition border leading-relaxed break-words"></div>
+        </div>
+
+        <!-- 2. 退出操作卡片：左右分栏或紧凑卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 方式一：标准 Form 表单退出 -->
+            <div class="border border-slate-200 rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-slate-300 transition">
+                <div class="space-y-1.5">
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">方式一</span>
+                        <h4 class="text-sm font-semibold text-slate-800">标准表单 POST 退出</h4>
+                    </div>
+                    <p class="text-xs text-slate-500 leading-normal">
+                        传统网页表单提交，自动注入隐藏域 <code>_csrf</code> token，成功后触发服务端 302 重定向至 <code>/info</code>。
+                    </p>
+                </div>
+
+                <form action="/logout" method="post" class="pt-2">
+                    <input type="hidden" name="_csrf" id="formCsrfToken"/>
+                    <button type="submit"
+                            class="w-full inline-flex justify-center items-center py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white rounded-lg text-xs font-medium shadow-sm hover:shadow transition">
+                        <span class="mr-1.5">🔴</span> 表单提交退出系统
+                    </button>
+                </form>
+            </div>
+
+            <!-- 方式二：Fetch 异步退出 -->
+            <div class="border border-slate-200 rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-slate-300 transition">
+                <div class="space-y-1.5">
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-100 text-indigo-700">方式二</span>
+                        <h4 class="text-sm font-semibold text-slate-800">Fetch 异步 POST 退出</h4>
+                    </div>
+                    <p class="text-xs text-slate-500 leading-normal">
+                        单页面/无刷新退出：Header 携带 <code>X-CSRF-TOKEN</code> 发起调用，并在本页立即查看状态变化。
+                    </p>
+                </div>
+
+                <div class="pt-2">
+                    <button type="button" onclick="fetchLogout()"
+                            class="w-full inline-flex justify-center items-center py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white rounded-lg text-xs font-medium shadow-sm hover:shadow transition">
+                        <span class="mr-1.5">⚡</span> 异步请求退出系统
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 异步退出结果展示 -->
+        <div id="fetchResult" class="hidden p-4 rounded-xl text-xs transition border leading-relaxed"></div>
+
+        <!-- 3. 底部快捷导航与环境说明 -->
+        <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+            <div class="flex flex-wrap items-center gap-3 font-medium">
+                <a href="/login.html" class="text-blue-600 hover:underline">🔐 表单登录</a>
+                <span class="text-slate-300">|</span>
+                <a href="/custom-login.html" class="text-indigo-600 hover:underline">⚡ JSON 登录</a>
+                <span class="text-slate-300">|</span>
+                <a href="/custom-token-login.html" class="text-violet-600 hover:underline">🎫 Token 登录</a>
+                <span class="text-slate-300">|</span>
+                <a href="/info" target="_blank" class="text-slate-600 hover:underline">🌐 公共接口 ↗</a>
+            </div>
+            <div class="text-slate-400">
+                端口: <code>18000</code>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const getCookie = (name) => {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const parts = cookie.trim().split('=');
+                if (parts[0] === name) {
+                    return decodeURIComponent(parts[1]);
+                }
+            }
+            return '';
+        };
+
+        const csrfToken = getCookie('csrf-token');
+        if (csrfToken) {
+            document.getElementById('formCsrfToken').value = csrfToken;
+        }
+
+        function checkStatus(url) {
+            const statusDiv = document.getElementById('statusResult');
+            statusDiv.classList.remove('hidden');
+            statusDiv.className = 'p-4 rounded-xl text-xs bg-blue-50/80 text-blue-900 border border-blue-200 block';
+            statusDiv.innerHTML = `<div class="flex items-center space-x-2"><span>⏳</span><span>正在向 <code>${url}</code> 发起探测请求...</span></div>`;
+
+            // redirect: 'manual' 捕获 302 重定向
+            fetch(url, { redirect: 'manual', credentials: 'same-origin' })
+                .then(res => {
+                    if (res.type === 'opaqueredirect' || res.status === 302 || res.status === 401 || res.status === 403) {
+                        statusDiv.className = 'p-4 rounded-xl text-xs bg-rose-50 text-rose-900 border border-rose-200 block space-y-1';
+                        statusDiv.innerHTML = `
+                            <div class="font-semibold text-rose-700 flex items-center space-x-1.5">
+                                <span>❌</span><span>当前状态：未登录（或无权访问）</span>
+                            </div>
+                            <div class="text-slate-600">请求 <code>${url}</code> 被 Spring Security 拦截重定向（HTTP ${res.status || '302'}），证明当前会话已失效。</div>
+                        `;
+                        return;
+                    }
+
+                    if (res.ok) {
+                        res.text().then(text => {
+                            if (text.includes('<title>系统登录') || text.includes('action="/your-login-path"')) {
+                                statusDiv.className = 'p-4 rounded-xl text-xs bg-rose-50 text-rose-900 border border-rose-200 block space-y-1';
+                                statusDiv.innerHTML = `
+                                    <div class="font-semibold text-rose-700 flex items-center space-x-1.5">
+                                        <span>❌</span><span>当前状态：未登录</span>
+                                    </div>
+                                    <div class="text-slate-600">请求被重定向到了登录页 <code>login.html</code>。</div>
+                                `;
+                            } else {
+                                statusDiv.className = 'p-4 rounded-xl text-xs bg-emerald-50 text-emerald-900 border border-emerald-200 block space-y-1';
+                                statusDiv.innerHTML = `
+                                    <div class="font-semibold text-emerald-700 flex items-center space-x-1.5">
+                                        <span>✅</span><span>当前状态：已登录有效会话！</span>
+                                    </div>
+                                    <div class="text-slate-700 mt-1 font-mono bg-white/70 p-2 rounded border border-emerald-100 overflow-x-auto">
+                                        ${text}
+                                    </div>
+                                `;
+                            }
+                        });
+                    } else {
+                        statusDiv.className = 'p-4 rounded-xl text-xs bg-amber-50 text-amber-900 border border-amber-200 block';
+                        statusDiv.innerHTML = `⚠️ 状态响应码: HTTP ${res.status}`;
+                    }
+                })
+                .catch(err => {
+                    statusDiv.className = 'p-4 rounded-xl text-xs bg-rose-50 text-rose-900 border border-rose-200 block';
+                    statusDiv.innerHTML = `❌ 探测失败: ${err.message}`;
+                });
+        }
+
+        function fetchLogout() {
+            const token = getCookie('csrf-token');
+            const resultDiv = document.getElementById('fetchResult');
+            resultDiv.classList.remove('hidden');
+            resultDiv.className = 'p-4 rounded-xl text-xs bg-blue-50/80 text-blue-900 border border-blue-200 block';
+            resultDiv.innerHTML = '<div class="flex items-center space-x-2"><span>⏳</span><span>正在发送退出请求 POST /logout ...</span></div>';
+
+            const headers = {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            };
+            if (token) {
+                headers['X-CSRF-TOKEN'] = token;
+                headers['X-XSRF-TOKEN'] = token;
+            }
+
+            const body = token ? `_csrf=${encodeURIComponent(token)}` : '';
+
+            fetch('/logout', {
+                method: 'POST',
+                headers: headers,
+                body: body,
+                credentials: 'same-origin'
+            }).then(res => {
+                if (res.ok || res.redirected || res.status === 200 || res.status === 302) {
+                    resultDiv.className = 'p-4 rounded-xl text-xs bg-emerald-50 text-emerald-900 border border-emerald-200 block space-y-1';
+                    resultDiv.innerHTML = `
+                        <div class="font-semibold text-emerald-700 flex items-center space-x-1.5">
+                            <span>✅</span><span>异步退出成功！(HTTP ${res.status})</span>
+                        </div>
+                        <div class="text-slate-600">服务端已清除认证会话及 Cookie 凭据。您可以点击上方的探测按钮立即验证。</div>
+                    `;
+                } else {
+                    resultDiv.className = 'p-4 rounded-xl text-xs bg-rose-50 text-rose-900 border border-rose-200 block';
+                    resultDiv.innerHTML = `❌ 退出请求失败，状态码: HTTP ${res.status}`;
+                }
+            }).catch(err => {
+                resultDiv.className = 'p-4 rounded-xl text-xs bg-rose-50 text-rose-900 border border-rose-200 block';
+                resultDiv.innerHTML = `❌ 退出请求失败: ${err.message}`;
+            });
+        }
+    </script>
+</body>
+</html>
